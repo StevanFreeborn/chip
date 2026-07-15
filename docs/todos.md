@@ -37,4 +37,7 @@
 - [x] Print file contents
 - [x] Print instructions
 - [x] Make sure program occupies correct space in chip memory
-- [ ] Parse individual instructions from binary CHIP-8 file
+- [x] Parse individual instructions from binary CHIP-8 file
+- [x] Print all instructions from CHIP-8 file
+- [x] Write all CHIP-8 IBM logo opcodes to CSV file
+- [ ] Implement opcodes present in the IMB logo CHIP-8 file
