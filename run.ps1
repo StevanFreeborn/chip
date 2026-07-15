@@ -1,6 +1,6 @@
 Write-Host "[Compiling...]"
 
-gcc main.c -o ./.bin/chip.exe
+gcc main.c -o ./.bin/chip.exe -Wall -Wextra
 
 if ($LASTEXITCODE -ne 0) {
   Write-Host "[Failed to compiled]";
