@@ -40,4 +40,19 @@
 - [x] Parse individual instructions from binary CHIP-8 file
 - [x] Print all instructions from CHIP-8 file
 - [x] Write all CHIP-8 IBM logo opcodes to CSV file
-- [ ] Implement opcodes present in the IMB logo CHIP-8 file
+- [x] Implement opcodes present in the IMB logo CHIP-8 file
+
+  | x | Opcode | Type | Description                  |
+  |---|--------|------|------------------------------|
+  | x | `00E0` | 00E0 | Clear display                |
+  | x | `1nnn` | 1nnn | Jump to address              |
+  | x | `3xkk` | 3xkk | Skip next if Vx == kk        |
+  | x | `6xkk` | 6xkk | Load register with immediate |
+  | x | `7xkk` | 7xkk | Add immediate to Vx          |
+  | x | `ANNN` | ANNN | Set index register           |
+  | x | `Bnnn` | Bnnn | Jump to V0 + addr            |
+  | x | `Dxyn` | Dxyn | Draw sprite                  |
+
+- [ ] Migrate drawing to raylib window
+- [ ] Implement remaining instructions
+- [ ] Handle keyboard input
