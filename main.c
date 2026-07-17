@@ -3,9 +3,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <windows.h>
 #include <signal.h>
 #include <string.h>
+#include <raylib.h>
 
 #define MEMORY_SIZE 4096
 #define PROGRAM_START 512
@@ -18,7 +18,8 @@ const int CYCLES_PER_FRAME = CPU_CLOCK_HZ / TIMER_HZ;
 
 volatile sig_atomic_t keep_running = 1;
 
-void handle_sigint() {
+void handle_sigint(int sig) {
+  (void)sig;
   keep_running = 0;
 }
 
@@ -39,6 +40,8 @@ typedef struct ChipEight {
   uint8_t V[16];
   uint8_t dt;
   uint8_t st;
+  uint16_t stack[16];
+  uint8_t sc;
   uint32_t display[SCREEN_WIDTH * SCREEN_HEIGHT];
 } chip_eight_t;
 
@@ -84,26 +87,15 @@ void draw(chip_eight_t *chip) {
 
 }
 
-int main(int argc, char *argv[]) {
-  // Sets up Ctrl+C handling
+void setup_graceful_exit() {
   signal(SIGINT, handle_sigint);
   signal(SIGTERM, handle_sigint);
+}
 
-  // Validate file argument
-  if (argc < 2) {
-    println("You fucked up bro! We need a file to load into memory.");
-    println("Usage: chip.exe <file-to-load>");
-    return FILE_NOT_PROVIDED;
-  }
-
-  // Load file
-  char* file_path = argv[1];
-  println("Loading file at %s...", file_path);
-
+int load_rom(chip_eight_t *chip, char *file_path) {
   FILE *file_ptr = fopen(file_path, "rb");
 
   if (file_ptr == NULL) {
-    println("File '%s' does not exist.", file_path);
     return FILE_MISSING;
   }
 
@@ -113,177 +105,202 @@ int main(int argc, char *argv[]) {
   int max_program_size = MEMORY_SIZE - PROGRAM_START;
 
   if (num_of_bytes > max_program_size) {
-    println("File at '%s' exceeds max program size of %d", file_path, max_program_size);
     fclose(file_ptr);
     return PROGRAM_TOO_LARGE;
   }
 
   fseek(file_ptr, 0, SEEK_SET);
 
-  chip_eight_t *chip = malloc(sizeof(chip_eight_t));
-
-  if (chip == NULL) {
-    println("Failed to allocate memory for chip.");
-    fclose(file_ptr);
-    return MEMORY_ALLOCATION_FAILURE;
-  }
-
   fread(&chip->memory[PROGRAM_START], sizeof(uint8_t), num_of_bytes, file_ptr);
   
+  fclose(file_ptr);
+
+  return COMPLETED_SUCCESSFULLY;
+}
+
+void init_chip(chip_eight_t *chip) {
   chip->pc = PROGRAM_START;
   chip->dt = 0;
   chip->st = 0;
   memset(chip->display, 0, sizeof(chip->display));
+}
 
-  println("File '%s' loaded successfully", file_path);
+void draw_sprite(chip_eight_t *chip, uint16_t n, uint16_t x, uint16_t y) {
+  uint8_t x_coordinate = chip->V[x] % SCREEN_WIDTH;
+  uint8_t y_coordinate = chip->V[y] % SCREEN_HEIGHT;
+  chip->V[15] = 0;
 
-  fclose(file_ptr);
+  for (int row = 0; row < n; row++) {
+    uint8_t sprite_byte = chip->memory[chip->I + row];
 
-  // main loop
-  while(keep_running) {
-    if (chip->pc > MEMORY_SIZE) {
+    if ((y_coordinate + row) >= SCREEN_HEIGHT) {
       break;
     }
 
-    long frame_start = get_time();
+    for (int col = 0; col < 8; col++) {
+      if ((x_coordinate + col) >= SCREEN_WIDTH) {
+        break;
+      }
+      
+      // extracting individual bits (pixels) from byte in memory
+      uint8_t sprite_pixel = sprite_byte & (128 >> col);
 
+      // flatten 2-d coordinates to index
+      int sprite_screen_index = ((y_coordinate + row) * SCREEN_WIDTH) + (x_coordinate + col);
+      uint32_t *screen_pixel = &chip->display[sprite_screen_index];
+
+      if (sprite_pixel != 0) {
+        if (*screen_pixel == 1) {
+          chip->V[15] = 1;
+        }
+
+        *screen_pixel ^= 1;
+      }
+    }
+  }
+}
+
+int main(int argc, char *argv[]) {
+  setup_graceful_exit();
+
+  if (argc < 2) {
+    println("You fucked up bro! We need a file to load into memory.");
+    println("Usage: chip.exe <file-to-load>");
+    return FILE_NOT_PROVIDED;
+  }
+
+  chip_eight_t *chip = malloc(sizeof(chip_eight_t));
+
+  if (chip == NULL) {
+    println("Failed to allocate memory for chip.");
+    return MEMORY_ALLOCATION_FAILURE;
+  }
+
+  init_chip(chip);
+
+  int load_rom_result = load_rom(chip, argv[1]);
+
+  if (load_rom_result != 0) {
+    return load_rom_result;
+  }
+
+  int scale_factor = 10;
+  int display_width = SCREEN_WIDTH * scale_factor;
+  int display_height = SCREEN_HEIGHT * scale_factor;
+  InitWindow(display_width, display_height, "chip");
+  SetTargetFPS(60);
+
+  while(!WindowShouldClose() || !keep_running)
+  {
     for(int i = 0; i < CYCLES_PER_FRAME; i++) {
-
-      // we need to read 2 bytes at at time:
-      // i.e. 00000000 00000000
-      // byte 1: 00011000 
-      // shift:  00011000 00000000
-      // byte 2:          11100110
-      // combine: |       11100110
-      //
-      // result: 00011000 11100110
+      // read 2 bytes at a time from memory
+      // reading first 1 byte shifting left 1 byte ORing 2 byte
       uint16_t opcode = (chip->memory[chip->pc] << 8) | (chip->memory[chip->pc + 1]);
       chip->pc += 2;
       
-      // nnn or addr - A 12-bit value, the lowest 12 bits of the instruction
-      // i.e. 00001111 11111111
-      // value:  11001111 11001100 (53196)
-      // oper:   &
-      // mask:   0000111111111111  (4095)
-      // result: 00001111 11001100 (4044)
+      // extracting the lowest 12 bits of the instruction
       uint16_t nnn = opcode & 4095;
 
-      // n or nibble - A 4-bit value, the lowest 4 bits of the instruction
-      // i.e. 00000000 00001111
-      // value:  11001111 11001100 (53196)
-      // oper: &
-      // mask: 00000000 00001111 (15)
+      //extracting the lowest 4 bits of the instruction
       uint16_t n = opcode & 15;
 
-      // x - A 4-bit value, the lower 4 bits of the high byte of the instruction
-      // i.e. 00001111 00000000
-      // oper: >> 8
-      // oper: &
-      // mask: 00001111 00000000 (3840)
+      // extracting the lower 4 bits of the high byte of the instruction
       uint16_t x = (opcode & 3840) >> 8;
 
-      // y - A 4-bit value, the upper 4 bits of the low byte of the instruction
-      // i.e. 00000000 11110000
-      // oper: >> 4 
-      // oper: &
-      // mask: 00000000 11110000 (240)
+      // extracting the upper 4 bits of the low byte of the instruction
       uint16_t y = (opcode & 240) >> 4;
       
-      // kk or byte - An 8-bit value, the lowest 8 bits of the instruction
-      // i.e. 00000000 11111111
-      // oper: &
-      // mask: 00000000 11111111 (255)
+      // extracting the lowest 8 bits of the instruction
       uint16_t kk = opcode & 255;
 
-      // mask: 11110000 00000000
       switch(opcode & 61440) {
-        // Clear display (00E0)
-        case 0:
-          if (opcode == 224) {
-            // println("Clean the display");
+        case 0: 
+          if (opcode == 224) { // 00E0
             memset(chip->display, 0, sizeof(chip->display));
-            draw(chip);
+          } else if (opcode == 238) { // 00EE
+            chip->pc = chip->stack[15];
+            chip->sc -= 1;
           }
           break;
-        case 4096:
-          // println("Jump to address: %d", nnn);
+        case 4096: // 1nnn
           chip->pc = nnn;
           break;
-        case 12288:
-          // println("Skip next");
-
-          if (chip->V[x] == kk) {
-            // println("Skipping");
-            chip->pc += 2;
-          } else {
-            // println("Not skipping");
-          }
-
+        case 8192: // 2nnn
+          chip->sc += 1;
+          chip->stack[15] = chip->pc;
+          chip->pc = nnn;
           break;
-        case 24576:
-          // println("Load register with immedate");
+        case 12288: // 3xkk
+          if (chip->V[x] == kk) {
+            chip->pc += 2;
+          }
+          break;
+        case 16384: // 4xkk
+          if (chip->V[x] != kk) {
+            chip->pc += 2;
+          }
+          break;
+        case 20480: // 5xy0
+          if (chip->V[x] == chip->V[y]) {
+            chip->pc += 2;
+          }
+          break;
+        case 24576: // 6xkk
           chip->V[x] = kk;
           break;
-        case 28672:
-          // println("Add immedate");
+        case 28672: // 7xkk
           chip->V[x] += kk;
           break;
-        case 40960:
-          // println("Set index register");
+        case 32768:
+          // TODO: Maybe switch?
+          if (n == 0) {
+            chip->V[x] = chip->V[y];
+          } else if (n == 1) {
+            chip->V[x] = chip->V[x] | chip->V[y];
+          } else if (n == 2) {
+            chip->V[x] = chip->V[x] & chip->V[y];
+          } else if (n == 3) {
+            chip->V[x] = chip->V[x] ^ chip->V[y];
+          } else if (n == 4) {
+            uint16_t r = chip->V[x] + chip->V[y];
+            chip->V[15] = (r > 255) ? 1 : 0;
+            chip->V[x] = r & 255;
+          } else if (n == 5) {
+            chip->V[15] = (chip->V[x] > chip->V[y]) ? 1 : 0;
+            chip->V[x] = chip->V[x] - chip->V[y];
+          } else if (n == 6) {
+            uint8_t flag = chip->V[x] & 1;
+            chip->V[15] = flag;
+            chip->V[x] /= 2;
+          } else if (n == 7) {
+            chip->V[15] = (chip->V[y] > chip->V[x]) ? 1 : 0;
+            chip->V[x] = chip->V[y] - chip->V[x];
+          } else if (n == 8) {
+            uint8_t flag = (chip->V[x] & 128) >> 7;
+            chip->V[15] = flag;
+            chip->V[x] *= 2;
+          }
+          break;
+        case 40960: // ANNN
           chip->I = nnn;
           break;
-        case 45056:
-          // println("Jump to V0 + addr");
+        case 45056: // Bnnn
           chip->pc = nnn + chip->V[0];
           break;
-        case 53248:
-          // println("Draw sprite");
-          uint8_t x_coordinate = chip->V[x] % SCREEN_WIDTH;
-          uint8_t y_coordinate = chip->V[y] % SCREEN_HEIGHT;
-          chip->V[15] = 0;
-
-          for (int row = 0; row < n; row++) {
-            uint8_t sprite_byte = chip->memory[chip->I + row];
-
-            if ((y_coordinate + row) >= SCREEN_HEIGHT) {
-              break;
-            }
-
-            for (int col = 0; col < 8; col++) {
-              if ((x_coordinate + col) >= SCREEN_WIDTH) {
-                break;
-              }
-              
-              // 0 0 0 0 0 0 0 0
-              // 1 0 0 0 0 0 0 0
-              // 0 1 0 0 0 0 0 0
-              // 0 0 1 0 0 0 0 0
-              uint8_t sprite_pixel = sprite_byte & (128 >> col);
-
-              // ****
-              // **x*
-              int sprite_screen_index = ((y_coordinate + row) * SCREEN_WIDTH) + (x_coordinate + col);
-              uint32_t *screen_pixel = &chip->display[sprite_screen_index];
-
-              if (sprite_pixel != 0) {
-                if (*screen_pixel == 1) {
-                  chip->V[15] = 1;
-                }
-
-                *screen_pixel ^= 1;
-              }
-            }
-          }
-
-
-          draw(chip);
+        case 49152: // Cxkk
+          uint8_t num = rand() % 256;
+          chip->V[x] = kk & num;
+          break;
+        case 53248: // Dxyn
+          draw_sprite(chip, n, x, y);
+          break;
+        case 57502: // E09E
+          // TODO: Need to get key inputs
           break;
         default:
-          // println("Unhandled opcode: %x", opcode);
           break;
       }
     }
-
 
     if (chip->dt > 0) {
       chip->dt--;
@@ -295,17 +312,26 @@ int main(int argc, char *argv[]) {
     } else {
       // TODO: Play sound
     }
-    
-    float min_diff = 16.66;
-    long frame_end = get_time();
-    long diff = frame_end - frame_start;
 
-    if (diff < min_diff) {
-      Sleep(min_diff - diff);
+    BeginDrawing();
+    ClearBackground(BLACK);
+
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+      for (int j = 0; j < SCREEN_WIDTH; j++) {
+        uint32_t screen_pixel = chip->display[i * SCREEN_WIDTH + j];
+
+        if (screen_pixel == 1) {
+          DrawRectangle(j * scale_factor, i * scale_factor, scale_factor, scale_factor, RAYWHITE);
+        }
+      }
     }
+
+    EndDrawing();
   }
 
   free(chip);
+
+  CloseWindow();
 
   return COMPLETED_SUCCESSFULLY;
 }

@@ -53,6 +53,26 @@
   | x | `Bnnn` | Bnnn | Jump to V0 + addr            |
   | x | `Dxyn` | Dxyn | Draw sprite                  |
 
-- [ ] Migrate drawing to raylib window
-- [ ] Implement remaining instructions
+- [x] Refactor main
+- [x] Migrate drawing to raylib window
+
 - [ ] Handle keyboard input
+
+- [ ] Implement remaining instructions
+
+  | x | Opcode | Type | Description                  |
+  |---|--------|------|------------------------------|
+  | x | `00EE` | 00EE | Return from subroutine       |
+  | x | `2nnn` | 2nnn | Call subroutine at nnn       |
+  | x | `4xkk` | 4xkk | Skip next if Vx != kk        |
+  | x | `5xy0` | 5xy0 | Skip next if Vx == Vy        |
+  | x | `8xy0` | 8xy0 | Stores Vy in Vx              |
+  | x | `8xy1` | 8xy1 ||
+  | x | `8xy2` | 8xy2 ||
+  | x | `8xy3` | 8xy3 ||
+  | x | `8xy4` | 8xy4 ||
+  | x | `8xy5` | 8xy5 ||
+  | x | `8xy6` | 8xy6 ||
+  | x | `8xy7` | 8xy7 ||
+  | x | `8xy8` | 8xy8 ||
+  | x | `Cxkk` | Cxkk ||
