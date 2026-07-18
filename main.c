@@ -436,7 +436,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (chip->st > 0) {
-      chip->st++;
+      chip->st--;
       // TODO: Play sound
     } else {
       // TODO: Play sound
