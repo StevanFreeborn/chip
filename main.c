@@ -282,9 +282,15 @@ int main(int argc, char *argv[]) {
 
   int load_rom_result = load_rom(chip, argv[1]);
 
-  if (load_rom_result != 0) {
-    // TODO: Check for return value
-    // print helpful error message
+  if (load_rom_result != COMPLETED_SUCCESSFULLY) {
+    if (load_rom_result == FILE_MISSING) {
+      println("Error: The file '%s' could not be found or opened.", argv[1]);
+    } else if (load_rom_result == PROGRAM_TOO_LARGE) {
+      println("Error: The program is too large to fit in CHIP-8 memory.");
+    } else {
+      println("Error: Failed to load ROM (code %d).", load_rom_result);
+    }
+    free(chip);
     return load_rom_result;
   }
 
