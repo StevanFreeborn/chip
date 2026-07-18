@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <string.h>
+#include <math.h>
 #include <raylib.h>
 
 #define MEMORY_SIZE 4096
@@ -294,6 +295,29 @@ int main(int argc, char *argv[]) {
     return load_rom_result;
   }
 
+  // Setup audio
+  InitAudioDevice();
+
+  // Generate 440Hz Sine wave beep in memory
+  int sampleRate = 44100;
+  float durationSeconds = 0.1f;
+  int frameCount = sampleRate * durationSeconds;
+  float *data = (float *)malloc(frameCount * sizeof(float));
+  if (data != NULL) {
+    for (int i = 0; i < frameCount; i++) {
+      data[i] = sinf(2.0f * PI * 440.0f * ((float)i / sampleRate)) * 0.2f;
+    }
+  }
+  Wave wave = { 0 };
+  wave.frameCount = frameCount;
+  wave.sampleRate = sampleRate;
+  wave.sampleSize = 32;
+  wave.channels = 1;
+  wave.data = data;
+
+  Sound beep_sound = LoadSoundFromWave(wave);
+  UnloadWave(wave); // Frees the 'data' buffer in system RAM
+
   int scale_factor = 10;
   int display_width = SCREEN_WIDTH * scale_factor;
   int display_height = SCREEN_HEIGHT * scale_factor;
@@ -498,9 +522,13 @@ int main(int argc, char *argv[]) {
 
     if (chip->st > 0) {
       chip->st--;
-      // TODO: Play sound
+      if (!IsSoundPlaying(beep_sound)) {
+        PlaySound(beep_sound);
+      }
     } else {
-      // TODO: Play sound
+      if (IsSoundPlaying(beep_sound)) {
+        StopSound(beep_sound);
+      }
     }
 
     BeginDrawing();
@@ -520,6 +548,9 @@ int main(int argc, char *argv[]) {
   }
 
   free(chip);
+
+  UnloadSound(beep_sound);
+  CloseAudioDevice();
 
   CloseWindow();
 
