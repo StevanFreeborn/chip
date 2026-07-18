@@ -354,14 +354,14 @@ int main(int argc, char *argv[]) {
             chip->V[15] = (r > 255) ? 1 : 0;
             chip->V[x] = r & 255;
           } else if (n == 5) {
-            chip->V[15] = (chip->V[x] > chip->V[y]) ? 1 : 0;
+            chip->V[15] = (chip->V[x] >= chip->V[y]) ? 1 : 0;
             chip->V[x] = chip->V[x] - chip->V[y];
           } else if (n == 6) {
             uint8_t flag = chip->V[x] & 1;
             chip->V[15] = flag;
             chip->V[x] /= 2;
           } else if (n == 7) {
-            chip->V[15] = (chip->V[y] > chip->V[x]) ? 1 : 0;
+            chip->V[15] = (chip->V[y] >= chip->V[x]) ? 1 : 0;
             chip->V[x] = chip->V[y] - chip->V[x];
           } else if (n == 14) {
             uint8_t flag = (chip->V[x] & 128) >> 7;
