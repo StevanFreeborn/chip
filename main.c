@@ -389,11 +389,11 @@ int main(int argc, char *argv[]) {
           break;
         case 57344: // E000
           if (nn == 158) {
-            if (chip->keys[chip->V[x]] == 1) {
+            if (chip->keys[chip->V[x] & 0x0F] == 1) {
               chip->pc += 2;
             }
           } else if (nn == 161) {
-            if (chip->keys[chip->V[x]] != 1) {
+            if (chip->keys[chip->V[x] & 0x0F] != 1) {
               chip->pc += 2;
             }
           }
@@ -411,7 +411,7 @@ int main(int argc, char *argv[]) {
           } else if (nn == 30) {
             chip->I += chip->V[x];
           } else if (nn == 41) {
-            chip->I = FONT_START + (chip->V[x] * 5);
+            chip->I = FONT_START + ((chip->V[x] & 0x0F) * 5);
           } else if (nn == 51) {
             chip->memory[chip->I] = chip->V[x] / 100;
             chip->memory[chip->I + 1] = (chip->V[x] / 10) % 10;
