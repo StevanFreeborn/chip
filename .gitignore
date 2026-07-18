@@ -1,3 +1,11 @@
 .bin/
-test_files/
 *.csv
+*.o
+*.gcda
+*.gcno
+*.gcov
+.clangd/
+*.swp
+*.swo
+*~
+tags
