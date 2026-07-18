@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
           } else if (n == 7) {
             chip->V[15] = (chip->V[y] > chip->V[x]) ? 1 : 0;
             chip->V[x] = chip->V[y] - chip->V[x];
-          } else if (n == 8) {
+          } else if (n == 14) {
             uint8_t flag = (chip->V[x] & 128) >> 7;
             chip->V[15] = flag;
             chip->V[x] *= 2;
