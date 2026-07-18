@@ -241,7 +241,7 @@ int main(int argc, char *argv[]) {
   InitWindow(display_width, display_height, "chip");
   SetTargetFPS(60);
 
-  while(!WindowShouldClose() || !keep_running)
+  while(!WindowShouldClose() && keep_running)
   {
     update_keys(chip);
 
