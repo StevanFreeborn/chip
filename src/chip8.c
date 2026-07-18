@@ -35,7 +35,9 @@ void chip8_init(chip_eight_t *chip) {
 }
 
 int chip8_load_rom(chip_eight_t *chip, const char *file_path) {
-  FILE *file_ptr = fopen(file_path, "rb");
+  FILE *file_ptr;
+
+  fopen_s(&file_ptr, file_path, "rb");
 
   if (file_ptr == NULL) {
     return FILE_MISSING;
@@ -186,10 +188,11 @@ void chip8_step(chip_eight_t *chip) {
     case OPCODE_GROUP_JP_V0_ADDR:
       chip->pc = nnn + chip->V[0];
       break;
-    case OPCODE_GROUP_RND_VX_BYTE:
+    case OPCODE_GROUP_RND_VX_BYTE: {
       uint8_t num = rand() % 256;
       chip->V[x] = kk & num;
       break;
+    }
     case OPCODE_GROUP_DRW_VX_VY_N:
       draw_sprite(chip, n, x, y);
       break;
