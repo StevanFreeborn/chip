@@ -141,11 +141,10 @@ int load_rom(chip_eight_t *chip, char *file_path) {
 }
 
 void init_chip(chip_eight_t *chip) {
+  memset(chip, 0, sizeof(chip_eight_t));
   chip->pc = PROGRAM_START;
   chip->dt = 0;
   chip->st = 0;
-  memset(chip->display, 0, sizeof(chip->display));
-  memset(chip->keys, 0, sizeof(chip->keys));
   chip->waiting_for_key = false;
 
   for (int i = 0; i < 80; i++) {
