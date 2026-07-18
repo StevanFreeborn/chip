@@ -15,6 +15,59 @@
 #define SCREEN_WIDTH 64
 #define SCREEN_HEIGHT 32
 
+enum OpcodeGroups {
+  OPCODE_GROUP_SYS_OR_RET = 0,
+  OPCODE_GROUP_JUMP = 4096,
+  OPCODE_GROUP_CALL = 8192,
+  OPCODE_GROUP_SE_VX_BYTE = 12288,
+  OPCODE_GROUP_SNE_VX_BYTE = 16384,
+  OPCODE_GROUP_SE_VX_VY = 20480,
+  OPCODE_GROUP_LD_VX_BYTE = 24576,
+  OPCODE_GROUP_ADD_VX_BYTE = 28672,
+  OPCODE_GROUP_ARITHMETIC = 32768,
+  OPCODE_GROUP_SNE_VX_VY = 36864,
+  OPCODE_GROUP_LD_I_ADDR = 40960,
+  OPCODE_GROUP_JP_V0_ADDR = 45056,
+  OPCODE_GROUP_RND_VX_BYTE = 49152,
+  OPCODE_GROUP_DRW_VX_VY_N = 53248,
+  OPCODE_GROUP_KEY_SKIP = 57344,
+  OPCODE_GROUP_MISC = 61440
+};
+
+enum SysOpcodes {
+  OPCODE_CLS = 224,
+  OPCODE_RET = 238
+};
+
+enum ArithmeticSubOpcodes {
+  SUB_OP_LD = 0,
+  SUB_OP_OR = 1,
+  SUB_OP_AND = 2,
+  SUB_OP_XOR = 3,
+  SUB_OP_ADD = 4,
+  SUB_OP_SUB = 5,
+  SUB_OP_SHR = 6,
+  SUB_OP_SUBN = 7,
+  SUB_OP_SHL = 14
+};
+
+enum KeySkipOpcodes {
+  OPCODE_SKP = 158,
+  OPCODE_SKNP = 161
+};
+
+enum MiscSubOpcodes {
+  SUB_OP_LD_VX_DT = 7,
+  SUB_OP_LD_VX_K = 10,
+  SUB_OP_LD_DT_VX = 21,
+  SUB_OP_LD_ST_VX = 24,
+  SUB_OP_ADD_I_VX = 30,
+  SUB_OP_LD_F_VX = 41,
+  SUB_OP_LD_B_VX = 51,
+  SUB_OP_LD_I_REG = 85,
+  SUB_OP_LD_REG_I = 101
+};
+
 const uint8_t fontset[80] = {
   0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
   0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -305,125 +358,124 @@ int main(int argc, char *argv[]) {
       uint16_t kk = opcode & 255;
 
       switch(opcode & 61440) {
-        case 0: 
-          if (opcode == 224) { // 00E0
+        case OPCODE_GROUP_SYS_OR_RET: 
+          if (opcode == OPCODE_CLS) {
             memset(chip->display, 0, sizeof(chip->display));
-          } else if (opcode == 238) { // 00EE
+          } else if (opcode == OPCODE_RET) {
             chip->sc -= 1;
             chip->pc = chip->stack[chip->sc];
           }
           break;
-        case 4096: // 1nnn
+        case OPCODE_GROUP_JUMP:
           chip->pc = nnn;
           break;
-        case 8192: // 2nnn
+        case OPCODE_GROUP_CALL:
           chip->stack[chip->sc] = chip->pc;
           chip->sc += 1;
           chip->pc = nnn;
           break;
-        case 12288: // 3xkk
+        case OPCODE_GROUP_SE_VX_BYTE:
           if (chip->V[x] == kk) {
             chip->pc += 2;
           }
           break;
-        case 16384: // 4xkk
+        case OPCODE_GROUP_SNE_VX_BYTE:
           if (chip->V[x] != kk) {
             chip->pc += 2;
           }
           break;
-        case 20480: // 5xy0
+        case OPCODE_GROUP_SE_VX_VY:
           if (chip->V[x] == chip->V[y]) {
             chip->pc += 2;
           }
           break;
-        case 24576: // 6xkk
+        case OPCODE_GROUP_LD_VX_BYTE:
           chip->V[x] = kk;
           break;
-        case 28672: // 7xkk
+        case OPCODE_GROUP_ADD_VX_BYTE:
           chip->V[x] += kk;
           break;
-        case 32768: // 8xy0
-          // TODO: Maybe switch?
-          if (n == 0) {
+        case OPCODE_GROUP_ARITHMETIC:
+          if (n == SUB_OP_LD) {
             chip->V[x] = chip->V[y];
-          } else if (n == 1) {
+          } else if (n == SUB_OP_OR) {
             chip->V[x] = chip->V[x] | chip->V[y];
-          } else if (n == 2) {
+          } else if (n == SUB_OP_AND) {
             chip->V[x] = chip->V[x] & chip->V[y];
-          } else if (n == 3) {
+          } else if (n == SUB_OP_XOR) {
             chip->V[x] = chip->V[x] ^ chip->V[y];
-          } else if (n == 4) {
+          } else if (n == SUB_OP_ADD) {
             uint16_t r = chip->V[x] + chip->V[y];
             chip->V[15] = (r > 255) ? 1 : 0;
             chip->V[x] = r & 255;
-          } else if (n == 5) {
+          } else if (n == SUB_OP_SUB) {
             chip->V[15] = (chip->V[x] >= chip->V[y]) ? 1 : 0;
             chip->V[x] = chip->V[x] - chip->V[y];
-          } else if (n == 6) {
+          } else if (n == SUB_OP_SHR) {
             uint8_t flag = chip->V[x] & 1;
             chip->V[15] = flag;
             chip->V[x] /= 2;
-          } else if (n == 7) {
+          } else if (n == SUB_OP_SUBN) {
             chip->V[15] = (chip->V[y] >= chip->V[x]) ? 1 : 0;
             chip->V[x] = chip->V[y] - chip->V[x];
-          } else if (n == 14) {
+          } else if (n == SUB_OP_SHL) {
             uint8_t flag = (chip->V[x] & 128) >> 7;
             chip->V[15] = flag;
             chip->V[x] *= 2;
           }
           break;
-        case 36864: // 9xy0
+        case OPCODE_GROUP_SNE_VX_VY:
           if (chip->V[x] != chip->V[y]) {
             chip->pc += 2;
           }
           break;
-        case 40960: // ANNN
+        case OPCODE_GROUP_LD_I_ADDR:
           chip->I = nnn;
           break;
-        case 45056: // Bnnn
+        case OPCODE_GROUP_JP_V0_ADDR:
           chip->pc = nnn + chip->V[0];
           break;
-        case 49152: // Cxkk
+        case OPCODE_GROUP_RND_VX_BYTE:
           uint8_t num = rand() % 256;
           chip->V[x] = kk & num;
           break;
-        case 53248: // Dxyn
+        case OPCODE_GROUP_DRW_VX_VY_N:
           draw_sprite(chip, n, x, y);
           break;
-        case 57344: // E000
-          if (nn == 158) {
+        case OPCODE_GROUP_KEY_SKIP:
+          if (nn == OPCODE_SKP) {
             if (chip->keys[chip->V[x] & 0x0F] == 1) {
               chip->pc += 2;
             }
-          } else if (nn == 161) {
+          } else if (nn == OPCODE_SKNP) {
             if (chip->keys[chip->V[x] & 0x0F] != 1) {
               chip->pc += 2;
             }
           }
           break;
-        case 61440: // F000
-          if (nn == 7) {
+        case OPCODE_GROUP_MISC:
+          if (nn == SUB_OP_LD_VX_DT) {
             chip->V[x] = chip->dt;
-          } else if (nn == 10) {
+          } else if (nn == SUB_OP_LD_VX_K) {
             chip->waiting_for_key = true;
             chip->key_register = x;
-          } else if (nn == 21) {
+          } else if (nn == SUB_OP_LD_DT_VX) {
             chip->dt = chip->V[x];
-          } else if (nn == 24) {
+          } else if (nn == SUB_OP_LD_ST_VX) {
             chip->st = chip->V[x];
-          } else if (nn == 30) {
+          } else if (nn == SUB_OP_ADD_I_VX) {
             chip->I += chip->V[x];
-          } else if (nn == 41) {
+          } else if (nn == SUB_OP_LD_F_VX) {
             chip->I = FONT_START + ((chip->V[x] & 0x0F) * 5);
-          } else if (nn == 51) {
+          } else if (nn == SUB_OP_LD_B_VX) {
             chip->memory[chip->I] = chip->V[x] / 100;
             chip->memory[chip->I + 1] = (chip->V[x] / 10) % 10;
             chip->memory[chip->I + 2] = chip->V[x] % 10;
-          } else if (nn == 85) {
+          } else if (nn == SUB_OP_LD_I_REG) {
             for (int i = 0; i <= x; i++) {
               chip->memory[chip->I + i] = chip->V[i];
             }
-          } else if (nn == 101) {
+          } else if (nn == SUB_OP_LD_REG_I) {
             for (int i = 0; i <= x; i++) {
               chip->V[i] = chip->memory[chip->I + i];
             }
