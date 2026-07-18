@@ -1,6 +1,6 @@
 Write-Host "[Compiling...]"
 
-gcc main.c -o ./.bin/chip.exe -Wall -Wextra -lraylib -lopengl32 -lgdi32 -lwinmm
+gcc src/main.c src/chip8.c -o ./.bin/chip.exe -Iinclude -Wall -Wextra -lraylib -lopengl32 -lgdi32 -lwinmm
 
 if ($LASTEXITCODE -ne 0) {
   Write-Host "[Failed to compiled]";
