@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
   setup_graceful_exit();
 
   if (argc < 2) {
-    println("You fucked up bro! We need a file to load into memory.");
+    println("We need a file to load into memory.");
     println("Usage: chip.exe <file-to-load>");
     return FILE_NOT_PROVIDED;
   }
