@@ -278,6 +278,9 @@ int main(int argc, char *argv[]) {
     }
 
     for(int i = 0; i < CYCLES_PER_FRAME; i++) {
+      if (chip->waiting_for_key) {
+        break;
+      }
       // read 2 bytes at a time from memory
       // reading first 1 byte shifting left 1 byte ORing 2 byte
       uint16_t opcode = (chip->memory[chip->pc] << 8) | (chip->memory[chip->pc + 1]);
