@@ -2,7 +2,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <sys/time.h>
 #include <signal.h>
 #include <string.h>
 #include <math.h>
@@ -134,34 +133,6 @@ void println(const char *format, ...) {
   printf("\n");
 }
 
-long get_time() {
-  struct timeval tv;
-
-  gettimeofday(&tv, NULL);
-
-  const int ms_per_sec = 1000;
-  long ms = tv.tv_sec / ms_per_sec;
-
-  return ms;
-}
-
-void draw(chip_eight_t *chip) {
-  printf("\033[J\033[H\033[?25l");
-
-  for (int i = 0; i < SCREEN_HEIGHT; i++) {
-    for (int j = 0; j < SCREEN_WIDTH; j++) {
-      uint32_t screen_pixel = chip->display[i * SCREEN_WIDTH + j];
-
-      if (screen_pixel == 1) {
-        printf("█");
-      } else {
-        printf(" ");
-      }
-    }
-
-    printf("\n");
-  }
-}
 
 void setup_graceful_exit() {
   signal(SIGINT, handle_sigint);
