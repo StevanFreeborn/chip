@@ -56,10 +56,20 @@
 
 - [x] Refactor main
 - [x] Migrate drawing to raylib window
+- [x] Handle keyboard input
 
-- [ ] Handle keyboard input
+    CHIP-8 Pad                  QWERTY Keyboard
+    ┌───┬───┬───┬───┐           ┌───┬───┬───┬───┐
+    │ 1 │ 2 │ 3 │ C │           │ 1 │ 2 │ 3 │ 4 │
+    ├───┼───┼───┼───┤           ├───┼───┼───┼───┤
+    │ 4 │ 5 │ 6 │ D │   ====>   │ Q │ W │ E │ R │
+    ├───┼───┼───┼───┤           ├───┼───┼───┼───┤
+    │ 7 │ 8 │ 9 │ E │           │ A │ S │ D │ F │
+    ├───┼───┼───┼───┤           ├───┼───┼───┼───┤
+    │ A │ 0 │ B │ F │           │ Z │ X │ C │ V │
+    └───┴───┴───┴───┘           └───┴───┴───┴───┘
 
-- [ ] Implement remaining instructions
+- [x] Implement remaining instructions
 
   |  x  | Opcode | Type | Description                                                     |
   | --- | ------ | ---- | --------------------------------------------------------------- |
@@ -76,17 +86,17 @@
   |  x  | `8xy6` | 8xy6 | Set Vx = Vx SHR 1                                               |
   |  x  | `8xy7` | 8xy7 | Set Vx = Vy - Vx, set VF = NOT borrow                           |
   |  x  | `8xyE` | 8xyE | Set Vx = Vx SHL 1                                               |
-  |     | `9xy0` | 9xy0 | Skip next if Vx != Vy                                           |
+  |  x  | `9xy0` | 9xy0 | Skip next if Vx != Vy                                           |
   |  x  | `Cxkk` | Cxkk | Set Vx = random byte AND kk                                     |
-  |     | `Ex9E` | Ex9E | Skip next if key Vx is pressed                                  |
-  |     | `ExA1` | ExA1 | Skip next if key Vx is not pressed                              |
-  |     | `Fx07` | Fx07 | Set Vx = delay timer value                                      |
-  |     | `Fx0A` | Fx0A | Wait for key press, store key in Vx                             |
-  |     | `Fx15` | Fx15 | Set delay timer = Vx                                            |
-  |     | `Fx18` | Fx18 | Set sound timer = Vx                                            |
-  |     | `Fx1E` | Fx1E | Set I = I + Vx                                                  |
-  |     | `Fx29` | Fx29 | Set I = location of sprite for digit Vx                         |
-  |     | `Fx33` | Fx33 | Store BCD representation of Vx in memory                        |
-  |     | `Fx55` | Fx55 | Store registers V0 through Vx in memory starting at location I  |
-  |     | `Fx65` | Fx65 | Read registers V0 through Vx from memory starting at location I |
-  |     | `0nnn` | 0nnn | Jump to machine code routine (ignored)                          |
+  |  x  | `Ex9E` | Ex9E | Skip next if key Vx is pressed                                  |
+  |  x  | `ExA1` | ExA1 | Skip next if key Vx is not pressed                              |
+  |  x  | `Fx07` | Fx07 | Set Vx = delay timer value                                      |
+  |  x  | `Fx0A` | Fx0A | Wait for key press, store key in Vx                             |
+  |  x  | `Fx15` | Fx15 | Set delay timer = Vx                                            |
+  |  x  | `Fx18` | Fx18 | Set sound timer = Vx                                            |
+  |  x  | `Fx1E` | Fx1E | Set I = I + Vx                                                  |
+  |  x  | `Fx29` | Fx29 | Set I = location of sprite for digit Vx                         |
+  |  x  | `Fx33` | Fx33 | Store BCD representation of Vx in memory                        |
+  |  x  | `Fx55` | Fx55 | Store registers V0 through Vx in memory starting at location I  |
+  |  x  | `Fx65` | Fx65 | Read registers V0 through Vx from memory starting at location I |
+  |  -  | `0nnn` | 0nnn | Jump to machine code routine (ignored)                          |

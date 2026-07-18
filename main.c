@@ -9,10 +9,30 @@
 
 #define MEMORY_SIZE 4096
 #define PROGRAM_START 512
+#define FONT_START 80
 #define CPU_CLOCK_HZ 600
 #define TIMER_HZ 60
 #define SCREEN_WIDTH 64
 #define SCREEN_HEIGHT 32
+
+const uint8_t fontset[80] = {
+  0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+  0x20, 0x60, 0x20, 0x20, 0x70, // 1
+  0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+  0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+  0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+  0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+  0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+  0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+  0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+  0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+  0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+  0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+  0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+  0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+  0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+  0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
 
 const int CYCLES_PER_FRAME = CPU_CLOCK_HZ / TIMER_HZ;
 
@@ -43,6 +63,9 @@ typedef struct ChipEight {
   uint16_t stack[16];
   uint8_t sc;
   uint32_t display[SCREEN_WIDTH * SCREEN_HEIGHT];
+  uint8_t keys[16];
+  uint8_t key_register;
+  bool waiting_for_key;
 } chip_eight_t;
 
 void println(const char *format, ...) {
@@ -84,7 +107,6 @@ void draw(chip_eight_t *chip) {
 
     printf("\n");
   }
-
 }
 
 void setup_graceful_exit() {
@@ -123,6 +145,12 @@ void init_chip(chip_eight_t *chip) {
   chip->dt = 0;
   chip->st = 0;
   memset(chip->display, 0, sizeof(chip->display));
+  memset(chip->keys, 0, sizeof(chip->keys));
+  chip->waiting_for_key = false;
+
+  for (int i = 0; i < 80; i++) {
+    chip->memory[FONT_START + i] = fontset[i];
+  }
 }
 
 void draw_sprite(chip_eight_t *chip, uint16_t n, uint16_t x, uint16_t y) {
@@ -160,6 +188,28 @@ void draw_sprite(chip_eight_t *chip, uint16_t n, uint16_t x, uint16_t y) {
   }
 }
 
+void update_keys(chip_eight_t *chip) {
+  chip->keys[1] = IsKeyDown(KEY_ONE);
+  chip->keys[2] = IsKeyDown(KEY_TWO);
+  chip->keys[3] = IsKeyDown(KEY_THREE);
+  chip->keys[12] = IsKeyDown(KEY_FOUR);
+
+  chip->keys[4] = IsKeyDown(KEY_Q);
+  chip->keys[5] = IsKeyDown(KEY_W);
+  chip->keys[6] = IsKeyDown(KEY_E);
+  chip->keys[13] = IsKeyDown(KEY_R);
+
+  chip->keys[7] = IsKeyDown(KEY_A);
+  chip->keys[8] = IsKeyDown(KEY_S);
+  chip->keys[9] = IsKeyDown(KEY_D);
+  chip->keys[14] = IsKeyDown(KEY_F);
+
+  chip->keys[10] = IsKeyDown(KEY_Z);
+  chip->keys[0] = IsKeyDown(KEY_X);
+  chip->keys[11] = IsKeyDown(KEY_C);
+  chip->keys[15] = IsKeyDown(KEY_V);
+}
+
 int main(int argc, char *argv[]) {
   setup_graceful_exit();
 
@@ -181,6 +231,8 @@ int main(int argc, char *argv[]) {
   int load_rom_result = load_rom(chip, argv[1]);
 
   if (load_rom_result != 0) {
+    // TODO: Check for return value
+    // print helpful error message
     return load_rom_result;
   }
 
@@ -192,6 +244,40 @@ int main(int argc, char *argv[]) {
 
   while(!WindowShouldClose() || !keep_running)
   {
+    update_keys(chip);
+
+    if (chip->waiting_for_key) {
+      bool key_pressed = false;
+
+      for (int i = 0; i < 16; i++) {
+        if (chip->keys[i]) {
+          chip->V[chip->key_register] = i;
+          chip->waiting_for_key = false;
+          key_pressed = true;
+          break;
+        }
+      }
+
+      if (!key_pressed) {
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+          for (int j = 0; j < SCREEN_WIDTH; j++) {
+            uint32_t screen_pixel = chip->display[i * SCREEN_WIDTH + j];
+
+            if (screen_pixel == 1) {
+              DrawRectangle(j * scale_factor, i * scale_factor, scale_factor, scale_factor, RAYWHITE);
+            }
+          }
+        }
+
+        EndDrawing();
+        continue;
+      }
+
+    }
+
     for(int i = 0; i < CYCLES_PER_FRAME; i++) {
       // read 2 bytes at a time from memory
       // reading first 1 byte shifting left 1 byte ORing 2 byte
@@ -200,6 +286,9 @@ int main(int argc, char *argv[]) {
       
       // extracting the lowest 12 bits of the instruction
       uint16_t nnn = opcode & 4095;
+
+      //extracting the lowest 8 bits of the instruction
+      uint8_t nn = opcode & 255;
 
       //extracting the lowest 4 bits of the instruction
       uint16_t n = opcode & 15;
@@ -218,16 +307,16 @@ int main(int argc, char *argv[]) {
           if (opcode == 224) { // 00E0
             memset(chip->display, 0, sizeof(chip->display));
           } else if (opcode == 238) { // 00EE
-            chip->pc = chip->stack[15];
             chip->sc -= 1;
+            chip->pc = chip->stack[chip->sc];
           }
           break;
         case 4096: // 1nnn
           chip->pc = nnn;
           break;
         case 8192: // 2nnn
+          chip->stack[chip->sc] = chip->pc;
           chip->sc += 1;
-          chip->stack[15] = chip->pc;
           chip->pc = nnn;
           break;
         case 12288: // 3xkk
@@ -251,7 +340,7 @@ int main(int argc, char *argv[]) {
         case 28672: // 7xkk
           chip->V[x] += kk;
           break;
-        case 32768:
+        case 32768: // 8xy0
           // TODO: Maybe switch?
           if (n == 0) {
             chip->V[x] = chip->V[y];
@@ -281,6 +370,11 @@ int main(int argc, char *argv[]) {
             chip->V[x] *= 2;
           }
           break;
+        case 36864: // 9xy0
+          if (chip->V[x] != chip->V[y]) {
+            chip->pc += 2;
+          }
+          break;
         case 40960: // ANNN
           chip->I = nnn;
           break;
@@ -294,8 +388,44 @@ int main(int argc, char *argv[]) {
         case 53248: // Dxyn
           draw_sprite(chip, n, x, y);
           break;
-        case 57502: // E09E
-          // TODO: Need to get key inputs
+        case 57344: // E000
+          if (nn == 158) {
+            if (chip->keys[chip->V[x]] == 1) {
+              chip->pc += 2;
+            }
+          } else if (nn == 161) {
+            if (chip->keys[chip->V[x]] != 1) {
+              chip->pc += 2;
+            }
+          }
+          break;
+        case 61440: // F000
+          if (nn == 7) {
+            chip->V[x] = chip->dt;
+          } else if (nn == 10) {
+            chip->waiting_for_key = true;
+            chip->key_register = x;
+          } else if (nn == 21) {
+            chip->dt = chip->V[x];
+          } else if (nn == 24) {
+            chip->st = chip->V[x];
+          } else if (nn == 30) {
+            chip->I += chip->V[x];
+          } else if (nn == 41) {
+            chip->I = FONT_START + (chip->V[x] * 5);
+          } else if (nn == 51) {
+            chip->memory[chip->I] = chip->V[x] / 100;
+            chip->memory[chip->I + 1] = (chip->V[x] / 10) % 10;
+            chip->memory[chip->I + 2] = chip->V[x] % 10;
+          } else if (nn == 85) {
+            for (int i = 0; i <= x; i++) {
+              chip->memory[chip->I + i] = chip->V[i];
+            }
+          } else if (nn == 101) {
+            for (int i = 0; i <= x; i++) {
+              chip->V[i] = chip->memory[chip->I + i];
+            }
+          }
           break;
         default:
           break;
