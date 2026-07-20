@@ -13,7 +13,7 @@ CHIP-8 is an interpreted programming language from the late 1970s, originally us
 - **Delay & sound timers** - Decrement at 60Hz, matching original hardware timing
 - **CPU clock** - 600Hz (10 cycles per frame at 60 FPS)
 - **Bounds checking** - Validates ROM size, key registers, and memory addresses
-- **Unit tests** - ⚠️ Work in Progress ⚠️ test suite using the [munit](https://nemequ.github.io/munit/) framework
+- **Unit tests** - Comprehensive test suite using the [munit](https://nemequ.github.io/munit/) framework
 
 ## Prerequisites
 
